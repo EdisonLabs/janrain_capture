@@ -118,3 +118,65 @@ function janrain_capture_uninstall() {
       ->condition('name', "janrain_capture_share%", 'LIKE'))
     ->execute();
 }
+
+/**
+ * Update users, change name to janrain_capture_uuid.
+ */
+function janrain_capture_update_7001(&$sandbox) {
+  $query = db_select('users', 'u')
+    ->fields('u', array('uid'));
+  $query->innerJoin('field_data_field_janrain_capture_uuid', 'j', 'j.entity_id = u.uid');
+  $users = $query->condition('j.entity_type ', 'user')
+    ->condition('j.bundle', 'user')
+    ->execute()
+    ->fetchAll();
+
+  if (!isset($sandbox['progress'])) {
+    $sandbox['progress'] = 0;
+    $sandbox['limit'] = 5;
+    $sandbox['max'] = count($users);
+  }
+
+  $chunk = array_slice($users, $sandbox['progress'], $sandbox['limit']);
+  if (!empty($chunk)) {
+    foreach ($chunk as $key => $user) {
+      $user = user_load($user->uid);
+      if (!empty($user->field_janrain_capture_uuid[LANGUAGE_NONE][0]['value'])
+        && $user->name !== $user->field_janrain_capture_uuid[LANGUAGE_NONE][0]['value']) {
+        $user->name = $user->field_janrain_capture_uuid[LANGUAGE_NONE][0]['value'];
+        user_save($user);
+      }
+      $sandbox['progress']++;
+    }
+  }
+
+  $sandbox['#finished'] = ($sandbox['progress'] / $sandbox['max']);
+}
+
+/**
+ * Update janrain mapping so capture uuid corresponds to drupal name.
+ */
+function janrain_capture_update_7002() {
+  module_load_include('inc', 'janrain_capture_mapping', 'janrain_capture_mapping.admin');
+  $capture_field_options = janrain_capture_mapping_get_capture_field_options();
+  $capture_field_options = array_flip($capture_field_options);
+  $uuid_key = $capture_field_options['UUID'];
+  $map = variable_get('janrain_capture_mapping_map', array());
+  $flag = FALSE;
+  foreach ($map as $key => $item) {
+    if ($item['field'] == 'name') {
+      $flag = $key;
+    }
+  }
+  if ($flag === FALSE) {
+    $map[] = array(
+      'fid' => $uuid_key,
+      'field' => 'name',
+      'column' => 'value'
+    );
+  }
+  else {
+    $map[$flag]['fid'] = $uuid_key;
+  }
+  variable_set('janrain_capture_mapping_map', $map);
+}

@@ -115,8 +115,8 @@ AUTH;
         $_SESSION['janrain_capture_email'] = $profile['result']['email'];
       }
 
-      // Check to see if a Drupal user with this email and UUID exists
-      $account = user_load_by_mail($profile['result']['email']);
+      // Check to see if a Drupal user with username = UUID exists
+      $account = user_load_by_name($profile['result']['uuid']);
 
       if ($account) {
         $uuid = entity_metadata_wrapper('user', $account)->field_janrain_capture_uuid->value();
